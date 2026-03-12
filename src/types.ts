@@ -127,6 +127,24 @@ export type PlayerCommand =
   | { type: 'peek' }
   | { type: 'resume' };
 
+export interface GameState {
+  players: Player[];
+  communityCards: Card[];
+  pot: number;
+  sidePots: SidePot[];
+  phase: GamePhase;
+  dealerIndex: number;
+  currentPlayerIndex: number;
+  currentBet: number;
+  minRaise: number;
+  config: GameConfig;
+  handNumber: number;
+  handHistory: HandHistory | null;
+  pastHands: HandHistory[];
+  gameOver: boolean;
+  winner: Player | null;
+}
+
 export interface RoundBets {
   bets: Map<number, number>;
   currentBet: number;
