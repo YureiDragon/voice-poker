@@ -12,6 +12,7 @@ const app = document.getElementById('app')!;
 let game: Game | null = null;
 let narrator: Narrator | null = null;
 let listener: Listener | null = null;
+let screen: ReturnType<typeof renderGameScreen> | null = null;
 let playerActionResolve: ((action: BettingAction) => void) | null = null;
 let peekVisible = false;
 
@@ -24,20 +25,19 @@ async function onStartGame(config: GameConfig): Promise<void> {
   listener = new Listener();
   game = new Game(config);
 
-  const screen = renderGameScreen(app, {
-    onMicPress: handleMicPress,
-    onMicRelease: handleMicRelease,
+  screen = renderGameScreen(app, {
+    onMicTap: handleMicTap,
     onTextSubmit: handleTextInput,
     onPeekToggle: handlePeekToggle,
   });
 
   game.onNarrate = async (text: string) => {
-    screen.setStatus(text);
+    screen!.setStatus(text);
     await narrator!.speak(text);
   };
 
   game.onWaitForPlayer = () => {
-    screen.setStatus('Your action...');
+    screen!.setStatus('Your action...');
     return new Promise<BettingAction>((resolve) => {
       playerActionResolve = resolve;
     });
@@ -54,22 +54,40 @@ async function onStartGame(config: GameConfig): Promise<void> {
   await game.start();
 }
 
-async function handleMicPress(): Promise<void> {
-  if (!listener?.isSupported()) return;
-  const screen = document.querySelector('.btn-mic') as HTMLElement | null;
-  screen?.classList.add('listening');
+async function handleMicTap(): Promise<void> {
+  if (!listener) return;
+
+  // If already listening, stop
+  if (listener.isListening()) {
+    listener.stop();
+    screen?.setListening(false);
+    return;
+  }
+
+  // Check support and give clear feedback
+  if (!listener.isSupported()) {
+    screen?.setStatus('Voice not available — use text input below');
+    narrator?.speak('Voice input is not available. Please use the text input.');
+    return;
+  }
+
+  screen?.setListening(true);
 
   try {
-    const text = await listener!.start();
-    screen?.classList.remove('listening');
+    const text = await listener.start();
+    screen?.setListening(false);
+    screen?.setStatus(`Heard: "${text}"`);
     processInput(text);
-  } catch {
-    screen?.classList.remove('listening');
+  } catch (e: any) {
+    screen?.setListening(false);
+    if (e.message === 'no-speech') {
+      screen?.setStatus("Didn't catch that — tap mic and try again");
+    } else if (e.message === 'not-allowed') {
+      screen?.setStatus('Microphone access denied — check browser permissions');
+    } else {
+      screen?.setStatus('Voice error — use text input below');
+    }
   }
-}
-
-function handleMicRelease(): void {
-  listener?.stop();
 }
 
 function handleTextInput(text: string): void {

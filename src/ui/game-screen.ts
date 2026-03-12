@@ -1,6 +1,5 @@
 export interface GameScreenCallbacks {
-  onMicPress: () => void;
-  onMicRelease: () => void;
+  onMicTap: () => void;
   onTextSubmit: (text: string) => void;
   onPeekToggle: () => void;
 }
@@ -34,10 +33,11 @@ export function renderGameScreen(
   const sendBtn = container.querySelector('#btn-send')!;
   const peekBtn = container.querySelector('#btn-peek')!;
 
-  micBtn.addEventListener('mousedown', callbacks.onMicPress);
-  micBtn.addEventListener('mouseup', callbacks.onMicRelease);
-  micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); callbacks.onMicPress(); });
-  micBtn.addEventListener('touchend', (e) => { e.preventDefault(); callbacks.onMicRelease(); });
+  // Single tap to start listening (not press-and-hold)
+  micBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    callbacks.onMicTap();
+  });
 
   const submitText = () => {
     const val = textInput.value.trim();
@@ -52,16 +52,15 @@ export function renderGameScreen(
     if (e.key === 'Enter') submitText();
   });
 
+  // Spacebar to talk (single press, not hold)
   const keyHandler = (e: KeyboardEvent) => {
     if (e.target === textInput) return;
-    if (e.code === 'Space') {
+    if (e.code === 'Space' && e.type === 'keydown') {
       e.preventDefault();
-      if (e.type === 'keydown') callbacks.onMicPress();
-      else callbacks.onMicRelease();
+      callbacks.onMicTap();
     }
   };
   document.addEventListener('keydown', keyHandler);
-  document.addEventListener('keyup', keyHandler);
 
   peekBtn.addEventListener('click', callbacks.onPeekToggle);
 
@@ -73,7 +72,6 @@ export function renderGameScreen(
     },
     destroy() {
       document.removeEventListener('keydown', keyHandler);
-      document.removeEventListener('keyup', keyHandler);
     },
   };
 }
